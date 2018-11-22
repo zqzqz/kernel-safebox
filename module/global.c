@@ -14,3 +14,5 @@ asmlinkage int (*original_creat)(const char __user *, int);
 asmlinkage int (*original_unlink)(const char *);
 asmlinkage int (*original_getdents64)(unsigned int, struct linux_dirent64 *, unsigned int);
 asmlinkage int (*original_getdents)(unsigned int, struct linux_dirent64 *, unsigned int);
+asmlinkage int (*original_link)(const char *, const char *);
+asmlinkage int (*original_unlink)(const char *);

