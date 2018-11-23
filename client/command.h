@@ -7,6 +7,8 @@
 #include <map>
 #include "log.h"
 
+#define BOX_PATH "/home/ubuntu/safebox/box/"
+
 typedef int (*CmdProcFunc)(char ** args, int argCnt);
 struct cmp_str
 {

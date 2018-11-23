@@ -1,7 +1,8 @@
-#include "command.h"
-#include "cryptoUtils.h"
 #include <fstream>
 #include <vector>
+#include <dirent.h>
+#include "command.h"
+#include "cryptoUtils.h"
 #define MAX_COMMAND_LEN 128
 
 Command::Command()
@@ -70,7 +71,7 @@ int Command::ExecCmd(char *mCmdLine)
             int res = func(mArgs, cmdArgs.size());
             if (res != 0)
             {
-                ERROR("Execution of command is failed (code " + std::to_string(res) + ")");
+                ERROR("Execution of command is failed");
             }
         }
         else
@@ -99,38 +100,134 @@ int test(char **args, int argCnt)
 
 int put(char **args, int argCnt)
 {
+    if (argCnt != 2)
+    {
+        ERROR("Unvalid number of arguments (required 2)");
+        return 3;
+    }
     // fetch arguments
-    char *filePath = *(args);
-    char *password = *(args + 1);
+    char *outFileName = *(args);
+    char *inFileName = *(args + 1);
+    char *password = *(args + 2);
+    int res = 0;
+
     // read input file
-    std::ifstream in(filePath);
+    std::ifstream in(outFileName);
     if (!in)
     {
-        ERROR("Cannot open file" + std::string(filePath));
+        ERROR("Cannot open file" + std::string(outFileName));
         return 1;
     }
     std::string text_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     char *text = (char *)text_str.c_str();
 
     size_t cipherLen = strlen(text);
+
     // encrypt
-    char *cipher;
+    char *cipher = new char[strlen(text)];
     CryptoUtils utils = CryptoUtils();
-    if (utils.AESEncrypt(text, cipher, password) != 0)
+    if (utils.AESEncrypt(text, cipher, password, NULL) != 0)
     {
         ERROR("AES Encryption failed");
         return 2;
     }
+    char *cipherFileName = new char[strlen(inFileName)];
+    if (utils.AES_base64_encrypt(inFileName, cipherFileName, password, NULL) != 0)
+    {
+        ERROR("AES Encryption failed");
+        return 2;
+    }
+    std::string cipher_str = std::string(cipher);
+
     // write output file
+    std::string fullFileName = std::string(BOX_PATH) + std::string(cipherFileName);
+    std::ofstream out(fullFileName.c_str());
+    if (!out)
+    {
+        ERROR("Cannot open file" + std::string(inFileName));
+        return 1;
+    }
+    out << cipher_str;
+
+    // clear job
+    delete cipher;
+    delete cipherFileName;
     return 0;
 }
 
 int get(char **args, int argCnt)
 {
+    if (argCnt != 2)
+    {
+        ERROR("Unvalid number of arguments (required 2)");
+        return 3;
+    }
+    // fetch arguments
+    char *inFileName = *(args);
+    char *outFileName = *(args + 1);
+    char *password = *(args + 2);
+    int res = 0;
+
+    // read input file
+    CryptoUtils utils = CryptoUtils();
+    char *cipherFileName = new char[strlen(inFileName)];
+    if (utils.AES_base64_encrypt(inFileName, cipherFileName, password, NULL) != 0)
+    {
+        ERROR("AES Encryption failed");
+        return 2;
+    }
+    std::string fullFileName = std::string(BOX_PATH) + std::string(cipherFileName);
+    std::ifstream in(fullFileName.c_str());
+    if (!in)
+    {
+        ERROR("Cannot open file" + std::string(inFileName));
+        return 1;
+    }
+    std::string cipher_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    char *cipher = (char *)cipher_str.c_str();
+
+    size_t cipherLen = strlen(cipher);
+
+    // edecrypt
+    char *text = new char[strlen(cipher)];
+    if (utils.AESDecrypt(cipher, text, password, NULL) != 0)
+    {
+        ERROR("AES Decryption failed");
+        return 2;
+    }
+    std::string text_str = std::string(text);
+
+    // write output file
+    std::ofstream out(outFileName);
+    if (!out)
+    {
+        ERROR("Cannot open file" + std::string(outFileName));
+        return 1;
+    }
+    out << text_str;
+
+    // clear job
+    delete text;
+    delete cipherFileName;
     return 0;
 }
 
 int list(char **args, int argCnt)
 {
+    char *match = NULL;
+    if (argCnt > 0) {
+        match = *(args);
+    }
+    DIR* dirp;
+    struct dirent *dp;
+    dirp = opendir(BOX_PATH);
+    while ((dp = readdir(dirp)) != NULL) {
+        if (match != NULL && strncmp(match, dp->d_name, strlen(match) != 0)) {
+            continue;
+        }
+        std::cout<<dp->d_name<<" ";
+    }
+    std::cout<<std::endl;
+    (void)closedir(dirp);
     return 0;
 }
