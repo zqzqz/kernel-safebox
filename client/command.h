@@ -6,7 +6,7 @@
 #include <vector>
 #include <map>
 
-typedef int (*CmdProcFunc)(char ** args);
+typedef int (*CmdProcFunc)(char ** args, int argCnt);
 struct cmp_str
 {
    bool operator()(char const *a, char const *b) const
@@ -15,10 +15,10 @@ struct cmp_str
    }
 };
 
-int test(char ** args);
-int put(char ** args);
-int get(char ** args);
-int list(char ** args);
+int test(char ** args, int argCnt);
+int put(char ** args, int argCnt);
+int get(char ** args, int argCnt);
+int list(char ** args, int argCnt);
 
 class Command
 {
