@@ -1,73 +1,69 @@
 #include "cryptoUtils.h"
+#include <cryptopp/aes.h>
+#include <cryptopp/filters.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/base64.h>
+#include <cryptopp/sha.h>
+#include <cryptopp/hex.h>
 
-#define AES_BLOCK_SIZE 64
-
-int CryptoUtils::AESEncrypt(const char *text, char *cipher, const char *password, const char *iv)
+std::string CryptoUtils::AESEncrypt(std::string text, std::string key, std::string iv)
 {
-    char *thisIV = new char[AES_BLOCK_SIZE];
-    if (iv)
+    std::string cipher;
+    std::string cIV;
+    if (iv.length() == 0)
     {
-        strncpy(thisIV, iv, AES_BLOCK_SIZE);
+        cIV = IV;
     }
     else
     {
-        strncpy(thisIV, this->IV, AES_BLOCK_SIZE);
+        cIV = iv;
     }
-    strcpy(cipher, text);
-    return 0;
+
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption encryption((byte *)key.c_str(), key.length(), (byte *)cIV.c_str());
+    CryptoPP::StringSource encryptor(text, true,
+        new CryptoPP::StreamTransformationFilter(encryption,
+            new CryptoPP::Base64Encoder(
+                new CryptoPP::StringSink(cipher),
+                    false // do not append a newline
+    )));
+    return cipher;
 }
 
-int CryptoUtils::AESDecrypt(const char *cipher, char *text, const char *password, const char *iv)
+std::string CryptoUtils::AESDecrypt(std::string cipher, std::string key, std::string iv)
 {
-    char *thisIV = new char[AES_BLOCK_SIZE];
-    if (iv)
+
+    std::string text;
+        std::string cIV;
+    if (iv.length() == 0)
     {
-        strncpy(thisIV, iv, AES_BLOCK_SIZE);
+        cIV = IV;
     }
     else
     {
-        strncpy(thisIV, this->IV, AES_BLOCK_SIZE);
+        cIV = iv;
     }
-    strcpy(text, cipher);
-    return 0;
+
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption decryption((byte *)key.c_str(), key.length(), (byte *)cIV.c_str());
+
+    CryptoPP::StringSource decryptor(cipher, true,
+        new CryptoPP::Base64Decoder(
+            new CryptoPP::StreamTransformationFilter(decryption,
+                new CryptoPP::StringSink(text)
+    )));
+    return text;
 }
 
-int CryptoUtils::base64Encrypt(const char *text, char *cipher)
+std::string CryptoUtils::SHA256(std::string text)
 {
-    strcpy(cipher, text);
-    return 0;
-}
+    CryptoPP::SHA256 hash;
+    byte digest[CryptoPP::SHA256::DIGESTSIZE];
+    hash.CalculateDigest(digest, (byte *)text.c_str(), text.length());
 
-int CryptoUtils::base64Decrypt(const char *cipher, char *text)
-{
-    strcpy(text, cipher);
-    return 0;
-}
+    CryptoPP::HexEncoder encoder;
+    std::string output;
+    encoder.Attach(new CryptoPP::StringSink(output));
+    encoder.Put(digest, sizeof(digest));
+    encoder.MessageEnd();
 
-int CryptoUtils::AES_base64_encrypt(const char *text, char *cipher, const char *password, const char *iv)
-{
-    char *midCipher = new char[strlen(text)];
-    int res = 0;
-    res = AESEncrypt(text, midCipher, password, iv);
-    if (res != 0)
-    {
-        return res;
-    }
-    res = base64Encrypt(midCipher, cipher);
-    delete midCipher;
-    return res;
-}
-
-int CryptoUtils::AES_base64_decrypt(const char *cipher, char *text, const char *password, const char *iv)
-{
-    char *midCipher = new char[strlen(text)];
-    int res = 0;
-    res = AESDecrypt(cipher, midCipher, password, iv);
-    if (res != 0)
-    {
-        return res;
-    }
-    res = base64Decrypt(midCipher, text);
-    delete midCipher;
-    return res;
+    return output;
 }

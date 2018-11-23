@@ -1,7 +1,7 @@
 CC = gcc
 XX = g++
 CFLAGS = -Wall -O -g -Wwrite-strings
-LIBS = -lreadline -lncurses
+LIBS = -lreadline -lncurses -lcrypto++
 TARGET = ./client
 
 %.o: %.c

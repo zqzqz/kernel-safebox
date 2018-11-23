@@ -39,12 +39,14 @@ int Command::ExecCmd(char *mCmdLine)
                     if (cmdFlag)
                     {
                         strncpy(cmdName, mCmdLine + start, i - start);
+                        cmdName[i-start] = '\0';
                         cmdFlag = false;
                     }
                     else
                     {
                         char *arg = new char[MAX_COMMAND_LEN];
                         strncpy(arg, mCmdLine + start, i - start);
+                        arg[i-start] = '\0';
                         cmdArgs.push_back(arg);
                     }
                 }
@@ -66,6 +68,7 @@ int Command::ExecCmd(char *mCmdLine)
             delete cmdArgs[i];
         }
         CmdProcFunc func = cmdMap[cmdName];
+
         if (func)
         {
             int res = func(mArgs, cmdArgs.size());
@@ -80,9 +83,9 @@ int Command::ExecCmd(char *mCmdLine)
             return -1;
         }
     }
-    catch (...)
+    catch (const std::exception &exc)
     {
-        ERROR("Unexpected failure");
+        ERROR(exc.what());
         return -1;
     }
 }
@@ -100,9 +103,9 @@ int test(char **args, int argCnt)
 
 int put(char **args, int argCnt)
 {
-    if (argCnt != 2)
+    if (argCnt != 3)
     {
-        ERROR("Unvalid number of arguments (required 2)");
+        ERROR("Unvalid number of arguments (required 3)");
         return 3;
     }
     // fetch arguments
@@ -110,56 +113,39 @@ int put(char **args, int argCnt)
     char *inFileName = *(args + 1);
     char *password = *(args + 2);
     int res = 0;
+    CryptoUtils utils = CryptoUtils();
 
+    std::string key = utils.SHA256(std::string(password)).substr(0, 16);
     // read input file
     std::ifstream in(outFileName);
     if (!in)
     {
-        ERROR("Cannot open file" + std::string(outFileName));
+        ERROR("Cannot open file " + std::string(outFileName));
         return 1;
     }
-    std::string text_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    char *text = (char *)text_str.c_str();
-
-    size_t cipherLen = strlen(text);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 
     // encrypt
-    char *cipher = new char[strlen(text)];
-    CryptoUtils utils = CryptoUtils();
-    if (utils.AESEncrypt(text, cipher, password, NULL) != 0)
-    {
-        ERROR("AES Encryption failed");
-        return 2;
-    }
-    char *cipherFileName = new char[strlen(inFileName)];
-    if (utils.AES_base64_encrypt(inFileName, cipherFileName, password, NULL) != 0)
-    {
-        ERROR("AES Encryption failed");
-        return 2;
-    }
-    std::string cipher_str = std::string(cipher);
+    std::string cipher = utils.AESEncrypt(text, key, std::string());
+    std::string cipherFileName = utils.AESEncrypt(inFileName, key, std::string());
 
     // write output file
-    std::string fullFileName = std::string(BOX_PATH) + std::string(cipherFileName);
+    std::string fullFileName = std::string(BOX_PATH) + cipherFileName;
     std::ofstream out(fullFileName.c_str());
     if (!out)
     {
         ERROR("Cannot open file" + std::string(inFileName));
         return 1;
     }
-    out << cipher_str;
-
-    // clear job
-    delete cipher;
-    delete cipherFileName;
+    out << cipher;
     return 0;
 }
 
 int get(char **args, int argCnt)
 {
-    if (argCnt != 2)
+    if (argCnt != 3)
     {
-        ERROR("Unvalid number of arguments (required 2)");
+        ERROR("Unvalid number of arguments (required 3)");
         return 3;
     }
     // fetch arguments
@@ -167,48 +153,31 @@ int get(char **args, int argCnt)
     char *outFileName = *(args + 1);
     char *password = *(args + 2);
     int res = 0;
-
-    // read input file
     CryptoUtils utils = CryptoUtils();
-    char *cipherFileName = new char[strlen(inFileName)];
-    if (utils.AES_base64_encrypt(inFileName, cipherFileName, password, NULL) != 0)
-    {
-        ERROR("AES Encryption failed");
-        return 2;
-    }
+
+    std::string key = utils.SHA256(std::string(password)).substr(0, 16);
+    // read input file
+    std::string cipherFileName = utils.AESEncrypt(inFileName, key, std::string());
     std::string fullFileName = std::string(BOX_PATH) + std::string(cipherFileName);
     std::ifstream in(fullFileName.c_str());
     if (!in)
     {
-        ERROR("Cannot open file" + std::string(inFileName));
+        ERROR("Cannot open file " + std::string(inFileName));
         return 1;
     }
-    std::string cipher_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    char *cipher = (char *)cipher_str.c_str();
-
-    size_t cipherLen = strlen(cipher);
+    std::string cipher((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 
     // edecrypt
-    char *text = new char[strlen(cipher)];
-    if (utils.AESDecrypt(cipher, text, password, NULL) != 0)
-    {
-        ERROR("AES Decryption failed");
-        return 2;
-    }
-    std::string text_str = std::string(text);
+    std::string text = utils.AESDecrypt(cipher, key, std::string());
 
     // write output file
     std::ofstream out(outFileName);
     if (!out)
     {
-        ERROR("Cannot open file" + std::string(outFileName));
+        ERROR("Cannot open file " + std::string(outFileName));
         return 1;
     }
-    out << text_str;
-
-    // clear job
-    delete text;
-    delete cipherFileName;
+    out << text;
     return 0;
 }
 
@@ -216,23 +185,25 @@ int list(char **args, int argCnt)
 {
     char *match = NULL;
     char *password = *(args);
-    if (argCnt > 1)
+    if (argCnt < 1)
+    {
+        ERROR("Unvalid number of arguments (required 1)");
+        return 3;
+    }
+    else if (argCnt > 1)
     {
         match = *(args + 1);
     }
     DIR *dirp;
     struct dirent *dp;
     dirp = opendir(BOX_PATH);
+    CryptoUtils utils = CryptoUtils();
+
+    std::string key = utils.SHA256(std::string(password)).substr(0, 16);
     while ((dp = readdir(dirp)) != NULL)
     {
-        char *cipherFileName = new char[strlen(dp->d_name)];
-        CryptoUtils utils = CryptoUtils();
-        if (utils.AES_base64_encrypt(dp->d_name, cipherFileName, password, NULL) != 0)
-        {
-            ERROR("AES Encryption failed");
-            return 2;
-        }
-        if (match != NULL && strncmp(match, cipherFileName, strlen(match) != 0))
+        std::string cipherFileName = utils.AESDecrypt(std::string(dp->d_name), key, std::string());
+        if (match != NULL && strncmp(match, cipherFileName.c_str(), strlen(match) != 0))
         {
             continue;
         }
