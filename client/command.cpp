@@ -215,19 +215,30 @@ int get(char **args, int argCnt)
 int list(char **args, int argCnt)
 {
     char *match = NULL;
-    if (argCnt > 0) {
-        match = *(args);
+    char *password = *(args);
+    if (argCnt > 1)
+    {
+        match = *(args + 1);
     }
-    DIR* dirp;
+    DIR *dirp;
     struct dirent *dp;
     dirp = opendir(BOX_PATH);
-    while ((dp = readdir(dirp)) != NULL) {
-        if (match != NULL && strncmp(match, dp->d_name, strlen(match) != 0)) {
+    while ((dp = readdir(dirp)) != NULL)
+    {
+        char *cipherFileName = new char[strlen(dp->d_name)];
+        CryptoUtils utils = CryptoUtils();
+        if (utils.AES_base64_encrypt(dp->d_name, cipherFileName, password, NULL) != 0)
+        {
+            ERROR("AES Encryption failed");
+            return 2;
+        }
+        if (match != NULL && strncmp(match, cipherFileName, strlen(match) != 0))
+        {
             continue;
         }
-        std::cout<<dp->d_name<<" ";
+        std::cout << cipherFileName << " ";
     }
-    std::cout<<std::endl;
+    std::cout << std::endl;
     (void)closedir(dirp);
     return 0;
 }
