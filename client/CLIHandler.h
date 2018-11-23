@@ -4,6 +4,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "command.h"
+#include "log.h"
 
 class CLIHandler: public Command
 {

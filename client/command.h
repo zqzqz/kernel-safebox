@@ -5,6 +5,7 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include "log.h"
 
 typedef int (*CmdProcFunc)(char ** args, int argCnt);
 struct cmp_str
